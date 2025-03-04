@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"time"
 
-	logg "github.com/blind3dd/awesomeProject/pkg/logger"
+	logg "github.com/blind3dd/server-upload/pkg/logger"
 )
 
 //type Client struct {
