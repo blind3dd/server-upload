@@ -1,3 +1,3 @@
-module github.com/blind3dd/awesomeProject/server-upload/server-upload
+module github.com/blind3dd/server-upload
 
 go 1.23.4
