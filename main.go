@@ -132,14 +132,6 @@ func aHandler(logger *logrus.Logger) Adapter {
 				panic(err)
 			}
 			logger.Println("server successfully handled provided stream data")
-			if err = json.NewEncoder(w).Encode(Response{
-				Code:    http.StatusOK,
-				Message: "Data: ",
-			}); err != nil {
-				panic(err)
-			}
-
-			//h.ServeHTTP(w, r)
 		})
 	}
 }
