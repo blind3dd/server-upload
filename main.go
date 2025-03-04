@@ -16,7 +16,7 @@ import (
 	"syscall"
 	"time"
 
-	logg "github.com/blind3dd/server-upload/pkg/logger"
+	logger "github.com/blind3dd/server-upload/pkg/logger"
 	wj "github.com/blind3dd/server-upload/pkg/writer"
 )
 
@@ -44,7 +44,7 @@ func muxAdapter(next http.Handler) http.HandlerFunc {
 	}
 }
 
-func authCheck(logger *logrus.Logger) Adapter {
+func authCheck(logger *logrus.Entry) Adapter {
 	return func(h http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Add("Content-Type", "application/json")
@@ -121,7 +121,7 @@ func (r *Reader) Read(b []byte) (n int, err error) {
 	return n, err
 }
 
-func processReader(logger *logrus.Logger, reader *Reader) error {
+func processReader(logger *logrus.Entry, reader *Reader) error {
 	decoder := json.NewDecoder(reader)
 	for {
 		token, err := decoder.Token()
@@ -140,7 +140,7 @@ func (r *Reader) GetCurrentBuffer() bytes.Buffer {
 	return r.buf
 }
 
-func jsonHandler(logger *logrus.Logger) Adapter {
+func jsonHandler(logger *logrus.Entry) Adapter {
 	return func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.Method != http.MethodPost || r.Header.Get("Content-Type") != "application/json" {
@@ -189,7 +189,7 @@ func jsonHandler(logger *logrus.Logger) Adapter {
 	}
 }
 
-func aHandler(logger *logrus.Logger) Adapter {
+func aHandler(logger *logrus.Entry) Adapter {
 	return func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			logger.Println("attempting to read data from the stream")
@@ -224,7 +224,7 @@ func aHandler(logger *logrus.Logger) Adapter {
 
 func main() {
 	mux := http.NewServeMux()
-	logger := logg.NewLogger()
+	logger := logger.NewLogger()
 	mux.Handle("/", wrap(indexHandler(), aHandler(logger), authCheck(logger)))
 	//mux.HandleFunc("/v1/handle", aHandler)
 	logger.Printf("starting http server at %s", lisAddr)
