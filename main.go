@@ -128,8 +128,7 @@ func aHandler(logger *logrus.Logger) Adapter {
 				}
 			}(r.Body)
 			logger.Println("attempting to write data from handler")
-			i, err := w.Write(data)
-			if err != nil {
+			if _, err := w.Write(data); err != nil {
 				panic(err)
 			}
 			logger.Println("server successfully handled provided stream data")
