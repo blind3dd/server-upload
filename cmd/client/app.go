@@ -14,18 +14,6 @@ import (
 	logg "github.com/blind3dd/server-upload/pkg/logger"
 )
 
-//type Client struct {
-//	Transport Transport
-//	Timeout   time.Duration
-//}
-//
-//type Transport struct {
-//	DisableCompression bool
-//	DisableKeepAlives  bool
-//	WriteBufferSize    int
-//	ForceAttemptHTTP2  bool
-//}
-
 type Value struct {
 }
 

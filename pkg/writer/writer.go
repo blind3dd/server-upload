@@ -66,11 +66,3 @@ func SaveToFile(j *Journal, filename string) {
 func NewJournal() *Journal {
 	return &Journal{}
 }
-
-// func (j *Journal) Load(filename string) {
-// 	panic("implement me")
-// }
-
-// func (j *Journal) LoadFromWeb(url *url.URL) {
-// 	panic("implement me")
-// }
