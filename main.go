@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/json"
-
+	"errors"
+	"fmt"
 	"github.com/sirupsen/logrus"
 	"io"
 	"net/http"
@@ -17,9 +19,6 @@ import (
 	logg "github.com/blind3dd/server-upload/pkg/logger"
 	wj "github.com/blind3dd/server-upload/pkg/writer"
 )
-
-type Queue struct {
-}
 
 type Adapter func(http.Handler) http.Handler
 
@@ -83,7 +82,7 @@ func authCheck(logger *logrus.Logger) Adapter {
 	}
 }
 
-func indexHandler(logger *logrus.Logger) Adapter {
+func indexHandler() Adapter {
 	return func(h http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
@@ -104,6 +103,92 @@ func indexHandler(logger *logrus.Logger) Adapter {
 	}
 }
 
+type Reader struct {
+	r       io.Reader
+	buf     bytes.Buffer
+	size    int64
+	maxSize int64
+}
+
+func (r *Reader) Read(b []byte) (n int, err error) {
+	n, err = r.r.Read(b)
+	if n > 0 {
+		r.size += int64(n)
+		if n, err := r.buf.Write(b[:n]); err != nil {
+			return n, err
+		}
+	}
+	return n, err
+}
+
+func processReader(logger *logrus.Logger, reader *Reader) error {
+	decoder := json.NewDecoder(reader)
+	for {
+		token, err := decoder.Token()
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return errors.New(fmt.Sprintf("failed to parse token: error: %v", err))
+		}
+
+		logger.Printf("token: %v", token)
+	}
+}
+
+func (r *Reader) GetCurrentBuffer() bytes.Buffer {
+	return r.buf
+}
+
+func jsonHandler(logger *logrus.Logger) Adapter {
+	return func(http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodPost || r.Header.Get("Content-Type") != "application/json" {
+				logger.Error("failed to read data from the stream")
+				w.WriteHeader(http.StatusUnsupportedMediaType)
+				if err := json.NewEncoder(w).Encode(Response{
+					Code: http.StatusUnsupportedMediaType, Message: "unsupported media type"},
+				); err != nil {
+					panic(err)
+				}
+				return
+			}
+			sizeLimit := int64(64 * 1024)
+			b := bytes.Buffer{}
+			b.Write(make([]byte, 0, sizeLimit))
+			reader := Reader{
+				r:       r.Body,
+				buf:     b,
+				size:    0,
+				maxSize: sizeLimit,
+			}
+			err := processReader(logger, &reader)
+			if err != nil {
+				panic(err)
+			}
+			rb := reader.GetCurrentBuffer()
+			logger.Println(len(rb.Bytes()))
+			r.Body = io.NopCloser(&rb)
+			data, err := io.ReadAll(r.Body)
+			if err != nil {
+				panic(err)
+			}
+			defer func(Body io.ReadCloser) {
+				err := Body.Close()
+				if err != nil {
+					panic(err)
+				}
+			}(r.Body)
+			logger.Println("attempting to write data from handler")
+			if _, err := w.Write(data); err != nil {
+				panic(err)
+			}
+
+			//h.ServeHTTP(w, r)
+		})
+	}
+}
+
 func aHandler(logger *logrus.Logger) Adapter {
 	return func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -116,6 +201,7 @@ func aHandler(logger *logrus.Logger) Adapter {
 				); err != nil {
 					panic(err)
 				}
+				return
 			}
 			data, err := io.ReadAll(r.Body)
 			if err != nil {
@@ -139,7 +225,7 @@ func aHandler(logger *logrus.Logger) Adapter {
 func main() {
 	mux := http.NewServeMux()
 	logger := logg.NewLogger()
-	mux.Handle("/", wrap(indexHandler(logger), aHandler(logger), authCheck(logger)))
+	mux.Handle("/", wrap(indexHandler(), aHandler(logger), authCheck(logger)))
 	//mux.HandleFunc("/v1/handle", aHandler)
 	logger.Printf("starting http server at %s", lisAddr)
 	ctx := context.Background()
@@ -168,6 +254,7 @@ func main() {
 	j.AddEntry("I cried")
 	j.AddEntry("Then I Realized It was not the deer but a horse")
 	j.AddEntry("not a donkey eater after all. Phew.")
+	j.AddEntry("beer? Nope. Telemetry")
 	logger.Printf("entries written: %v", j.Stringer())
 	wj.SaveToFile(j, "ingest.txt")
 	p := wj.Persistence{LineSeparator: "\r\n"}
