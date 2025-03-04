@@ -8,53 +8,53 @@ import (
 	"strings"
 )
 
-func NewLogger() *logrus.Logger {
-	logger := DefaultLogger
-	logger.SetOutput(os.Stdout)
-	logger.SetFormatter(&logrus.JSONFormatter{})
-	//TODO
-	//reqID := GetRequestID(ctx)
-	//if reqID == "" {
-	//	key, err := uuid.NewV7()
-	//	if err != nil {
-	//		panic(err)
-	//	}
-	//	uuidString := key.String()
-	//	reqID = fmt.Sprintf("%s", uuidString)
-	//}
+func NewLogger() *logrus.Entry {
+	fields := getExtraFields()
+	entry := logrus.WithFields(logrus.Fields{})
+	for k, v := range *fields {
+		entry = entry.WithFields(logrus.Fields{
+			k: v,
+		})
+	}
+	entry.Logger.SetFormatter(&logrus.JSONFormatter{})
+	entry.Logger.SetOutput(os.Stdout)
+	entry.Println("hello")
 
-	/*&logEntry{entry}*/
-	return logger
+	return entry
 }
 
-type callinfo struct {
+type callInfo struct {
 	packageName string
 	fileName    string
 	funcName    string
 	lineNumber  int
 }
 
-func retrieveCallInfo() *callinfo {
+func getExtraFields() *logrus.Fields {
 	pc, file, line, _ := runtime.Caller(2)
 	_, fileName := path.Split(file)
 	parts := strings.Split(runtime.FuncForPC(pc).Name(), ".")
 	pl := len(parts)
 	packageName := ""
-	funcName := parts[pl-1]
+	fN := parts[pl-1]
 
 	if parts[pl-2][0] == '(' {
-		funcName = parts[pl-2] + "." + funcName
+		fN = parts[pl-2] + "." + fN
 		packageName = strings.Join(parts[0:pl-2], ".")
 	} else {
 		packageName = strings.Join(parts[0:pl-1], ".")
 	}
-
-	return &callinfo{
+	ci := &callInfo{
 		packageName: packageName,
 		fileName:    fileName,
-		funcName:    funcName,
+		funcName:    fN,
 		lineNumber:  line,
 	}
-}
 
-var DefaultLogger *logrus.Logger = logrus.New()
+	return &logrus.Fields{
+		"packageName": ci.packageName,
+		"fileName":    ci.fileName,
+		"funcName":    ci.funcName,
+		"lineNumber":  ci.lineNumber,
+	}
+}
